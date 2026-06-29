@@ -1,0 +1,228 @@
+<?xml version="1.0"?>
+
+<robot name="go1" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+    <xacro:arg name="DEBUG" default="false"/>
+
+    <xacro:include filename="$(find go1_description_V0)/xacro/const.xacro"/>
+    <xacro:include filename="$(find go1_description_V0)/xacro/materials.xacro"/>
+    <xacro:include filename="$(find go1_description_V0)/xacro/leg.xacro"/>
+    <!-- <xacro:include filename="$(find go1_description_V0)/xacro/stairs.xacro"/> -->
+    <xacro:include filename="$(find go1_description_V0)/xacro/gazebo.xacro"/>
+    <xacro:include filename="$(find go1_description_V0)/xacro/depthCamera.xacro"/>
+    <xacro:include filename="$(find go1_description_V0)/xacro/ultraSound.xacro"/>
+    <!-- <xacro:include filename="$(find go1_gazebo)/launch/stairs.urdf.xacro"/> -->
+
+    <!-- <xacro:stairs stairs="15" xpos="0" ypos="0" zpos="0" /> -->
+
+    <!-- Rotor related joint and link is only for demonstrate location. -->
+    <!-- Actually, the rotor will rotate and the joint is not fixed. Reduction ratio should be considered. -->
+
+    <!-- Debug mode will hung up the robot, use "true" or "false" to switch it. -->
+    <xacro:if value="$(arg DEBUG)">
+        <link name="world"/>
+        <joint name="base_static_joint" type="fixed">
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <parent link="world"/>
+            <child link="base"/>
+        </joint>
+    </xacro:if> 
+
+    <link name="base">
+        <visual>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <box size="0.001 0.001 0.001"/>
+            </geometry>
+        </visual>
+    </link>
+
+    <joint name="floating_base" type="fixed">
+        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <parent link="base"/>
+        <child link="trunk"/>
+    </joint>
+
+    <link name="trunk">
+        <visual>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="package://go1_description_V0/meshes/trunk.dae" scale="1 1 1"/>
+            </geometry>
+            <!-- <material name="orange"/> -->
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <box size="${trunk_length} ${trunk_width} ${trunk_height}"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <origin rpy="0 0 0" xyz="${trunk_com_x} ${trunk_com_y} ${trunk_com_z}"/>
+            <mass value="${trunk_mass}"/>
+            <inertia
+                ixx="${trunk_ixx}" ixy="${trunk_ixy}" ixz="${trunk_ixz}"
+                iyy="${trunk_iyy}" iyz="${trunk_iyz}"
+                izz="${trunk_izz}"/>  
+        </inertial>
+    </link>
+
+    <joint name="imu_joint" type="fixed">
+        <parent link="trunk"/>
+        <child link="imu_link"/>
+        <origin rpy="0 0 0" xyz="-0.01592 -0.06659 -0.00617"/>
+    </joint>
+
+    <link name="imu_link">
+        <inertial>
+            <mass value="0.001"/>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <inertia ixx="0.0001" ixy="0" ixz="0" iyy="0.0001" iyz="0" izz="0.0001"/>
+        </inertial>
+        <visual>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <box size="0.001 0.001 0.001"/>
+            </geometry>
+            <!-- <material name="red"/> -->
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <box size=".001 .001 .001"/>
+            </geometry>
+        </collision>
+    </link>
+    <xacro:leg name="FR" mirror="-1" mirror_dae= "False" front_hind="1"  front_hind_dae="True"  />
+    <xacro:leg name="FL" mirror="1"  mirror_dae="True"   front_hind="1"  front_hind_dae="True"  />
+    <xacro:leg name="RR" mirror="-1" mirror_dae="False"  front_hind="-1" front_hind_dae="False" />
+    <xacro:leg name="RL" mirror="1"  mirror_dae="True"   front_hind="-1" front_hind_dae="False" />
+
+    <!-- d435相机 -->
+    <xacro:include filename="$(find realsense_ros_gazebo)/xacro/depthcam.xacro"/>
+    <xacro:realsense_d435 sensor_name="d435" parent_link="trunk" rate="10">
+        <origin rpy="0 0.52 0" xyz="0.272 0.0075 0.092"/>
+    </xacro:realsense_d435>
+
+    <link name="payload_plate_link">
+        <visual>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <box size="0.23 0.15 0.04"/>
+            </geometry>
+            <material name="grey"/>
+        </visual>
+        <inertial>
+            <mass value="1.0"/>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
+        </inertial>
+    </link>
+
+    <joint name="plate_joint" type="fixed">
+        <parent link="trunk"/>
+        <child link="payload_plate_link"/>
+        <origin xyz="0 0 0.087" rpy="0 0 0"/>
+    </joint>
+
+
+    <link name="mid360_link">
+        <visual>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <cylinder radius="0.05" length="0.07"/>
+            </geometry>
+            <material name="blue"/>
+        </visual>
+        
+        <!-- <collision>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <cylinder radius="0.05" length="0.07"/>
+            </geometry>
+        </collision>
+         -->
+        <inertial>
+            <mass value="0.265"/>
+            <inertia ixx="0.000274" ixy="0" ixz="0" iyy="0.000274" iyz="0" izz="0.000331"/>
+        </inertial>
+    </link>
+
+    <joint name="mid360_joint" type="fixed">
+        <parent link="trunk"/>
+        <child link="mid360_link"/>
+        <origin xyz="0.115 0 0.092" rpy="0 0 0"/>
+    </joint>
+
+    <gazebo reference="mid360_link">
+        <sensor type="ray" name="mid360_sensor">
+            <pose>0 0 0 0 0 0</pose>
+            <visualize>false</visualize>
+            <always_on>true</always_on>
+            <update_rate>10</update_rate>
+            
+            <plugin name="gazebo_ros_laser_controller" filename="liblivox_laser_simulation.so">
+                
+                <ray>
+                    <scan>
+                        <horizontal>
+                            <samples>100</samples>
+                            <resolution>1</resolution>
+                            <min_angle>-3.1415926535897931</min_angle>
+                            <max_angle>3.1415926535897931</max_angle>
+                        </horizontal>
+                        <vertical>
+                            <samples>360</samples>
+                            <resolution>1</resolution>
+                            <min_angle>-0.126</min_angle> 
+                            <max_angle>0.908</max_angle>
+                        </vertical>
+                    </scan>
+                    <range>
+                        <min>0.1</min>
+                        <max>40.0</max> 
+                        <resolution>0.002</resolution>
+                    </range>
+                    <noise>
+                        <type>gaussian</type>
+                        <mean>0.0</mean>
+                        <stddev>0.01</stddev>
+                    </noise>
+                </ray>
+
+                <samples>24000</samples>
+                <downsample>1</downsample>
+                
+                <csv_file_name>mid360-real-centr.csv</csv_file_name>
+                <ros_topic>/livox/lidar</ros_topic> 
+                <frameName>mid360_link</frameName>
+                <publish_pointcloud_type>3</publish_pointcloud_type> 
+            </plugin>
+        </sensor>
+        <sensor type="imu" name="mid360_imu_sensor">
+            <always_on>true</always_on>
+            <update_rate>200</update_rate> <visualize>true</visualize>
+            <plugin name="imu_plugin" filename="libgazebo_ros_imu_sensor.so">
+                <topicName>/livox/imu</topicName> <bodyName>mid360_link</bodyName>
+                <updateRateHZ>200.0</updateRateHZ>
+                <gaussianNoise>0.002</gaussianNoise>
+                <xyzOffset>0 0 0</xyzOffset>
+                <rpyOffset>0 0 0</rpyOffset>
+                <frameName>mid360_link</frameName> </plugin>
+            <pose>0 0 0 0 0 0</pose>
+        </sensor>
+    </gazebo>
+
+    <gazebo>
+      <plugin name="p3d_base_controller" filename="libgazebo_ros_p3d.so">
+        <alwaysOn>true</alwaysOn>
+        <updateRate>200.0</updateRate>
+        <bodyName>trunk</bodyName> <topicName>ground_truth/odom</topicName>
+        <frameName>map</frameName>
+        <broadcastTF>false</broadcastTF>
+        <gaussianNoise>0.00</gaussianNoise>
+        <xyzOffsets>0 0 0</xyzOffsets>
+        <rpyOffsets>0 0 0</rpyOffsets>
+      </plugin>
+    </gazebo>
+</robot>

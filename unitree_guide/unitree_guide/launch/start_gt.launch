@@ -1,0 +1,57 @@
+<launch>
+    <!--
+        真值里程计测试模式
+        替代 FAST-LIO，使用 Gazebo 真值位姿广播 TF
+
+        使用方法：
+          1. 先启动: roslaunch unitree_guide gazeboSim.launch
+          2. 狗站立后: roslaunch unitree_guide start_gt.launch
+    -->
+
+    <param name="/use_sim_time" value="true" />
+
+    <!-- ================================================================================== -->
+    <!-- 节点 1: 真值 TF 发布器                                                   -->
+    <!--         订阅 /ground_truth/odom → 广播 map -> trunk TF                     -->
+    <!--         100% 完美位姿，零漂移                                               -->
+    <!-- ================================================================================== -->
+    <node pkg="unitree_guide" type="ground_truth_tf_publisher.py"
+          name="ground_truth_tf_publisher" output="screen">
+    </node>
+
+    <!-- ================================================================================== -->
+    <!-- 节点 2: 点云体素降采样                                                    -->
+    <!--         640x480 原始深度点云 (~30万点/帧) → leaf_size=0.05 降采样               -->
+    <!--         同时过滤 z<0.01 和 z>6.0 的异常点                                       -->
+    <!--         降采样后每个 0.05m 网格最多1个点，高程图不再"爆炸"                       -->
+    <!-- ================================================================================== -->
+    <node pkg="nodelet" type="nodelet" name="voxel_grid"
+          args="standalone pcl/VoxelGrid" output="screen">
+        <remap from="~input"  to="/d435/depth/color/points" />
+        <remap from="~output" to="/d435/depth/color/points_downsampled" />
+        <param name="leaf_size" value="0.05" />
+        <param name="filter_limit_negative" value="False" />
+        <param name="filter_field_name" value="z" />
+        <param name="filter_limit_min" value="0.01" />
+        <param name="filter_limit_max" value="6.0" />
+    </node>
+
+    <!-- ================================================================================== -->
+    <!-- 节点 3: 高程图（VRL GT 优化配置）                                          -->
+    <!--         输入降采样后的点云，配合适度 update/cleanup 频率                       -->
+    <!--         不再被30万点轰炸，每个网格干净地接收1个高度值                            -->
+    <!-- ================================================================================== -->
+    <node pkg="elevation_mapping" type="elevation_mapping" name="elevation_mapping" output="screen">
+        <rosparam command="load" file="$(find elevation_mapping_demos)/config/robots/vlr_gt_robot.yaml" />
+        <rosparam command="load" file="$(find elevation_mapping_demos)/config/elevation_maps/vlr_gt_map.yaml" />
+        <rosparam command="load" file="$(find elevation_mapping_demos)/config/postprocessing/postprocessor_pipeline.yaml" />
+    </node>
+
+    <!-- 高程图网格可视化 -->
+    <include file="$(find elevation_mapping_demos)/launch/visualization.launch" />
+
+    <!-- RViz -->
+    <node name="rviz" pkg="rviz" type="rviz"
+          args="-d $(find elevation_mapping_demos)/rviz/elevation_map_visualization.rviz" />
+
+</launch>
